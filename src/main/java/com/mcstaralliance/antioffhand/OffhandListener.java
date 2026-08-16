@@ -23,12 +23,16 @@ public final class OffhandListener implements Listener {
     }
 
     /**
-     * 关闭 GUI 时按 F 切换主副手。注意：getOffHandItem() 返回的是「即将进入副手」的物品
-     * （即当前主手物品），getMainHandItem() 反而是原副手物品，别查反了。
+     * 关闭 GUI 时按 F 切换主副手。
+     * 注意：PlayerSwapHandItemsEvent 的 getMainHandItem()/getOffHandItem() 语义在
+     * Spigot 实现中与 Javadoc 相反，混合服（Arclight/Mohist 等）实现亦不统一。
+     * 事件在交换发生前触发且可取消，因此此刻玩家主手里的物品就是「即将进入副手」
+     * 的物品——直接读背包真实状态判断，不依赖有歧义的 getter。
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onSwapHands(PlayerSwapHandItemsEvent event) {
-        if (plugin.shouldBlock(event.getOffHandItem())) {
+        ItemStack enteringOffhand = event.getPlayer().getInventory().getItemInMainHand();
+        if (plugin.shouldBlock(enteringOffhand)) {
             event.setCancelled(true);
             notify(event.getPlayer());
         }

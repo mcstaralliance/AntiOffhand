@@ -4,7 +4,7 @@
 
 玩家无法将物品放入副手槽位，也无法通过切换副手动作使用副手中的物品；上线时副手中「被过滤」的残留物品会被自动清出并掉落，防止绕过。
 
-支持白名单 / 黑名单过滤：可按物品 id 精确或按 mod 命名空间通配匹配，默认白名单已配置为只允许「精妙背包 (Sophisticated Backpacks)」mod 的物品放入副手。
+支持白名单 / 黑名单过滤：可按物品 id 精确或按 mod 命名空间通配匹配，默认黑名单已配置为只禁止「精妙背包 (Sophisticated Backpacks)」mod 的物品放入副手。
 
 ## 功能
 
@@ -19,7 +19,7 @@
 
 ## 安装
 
-1. 将 `target/AntiOffhand-1.2.0.jar` 放入服务端 `plugins/` 目录
+1. 将 `target/AntiOffhand-1.2.1.jar` 放入服务端 `plugins/` 目录
 2. 重启服务端，插件会自动生成 `plugins/AntiOffhand/config.yml`
 
 ## 配置
@@ -33,7 +33,7 @@ message: "&c该物品无法放入副手！"
 filter:
   # WHITELIST = 仅列表内物品允许放入副手，其余禁止
   # BLACKLIST = 仅列表内物品禁止放入副手，其余允许
-  mode: WHITELIST
+  mode: BLACKLIST
   # 支持精确 id（namespace:key）与通配前缀（namespace:*）
   items:
     - "sophisticatedbackpacks:*"
@@ -41,7 +41,7 @@ filter:
 
 - 物品 id 取自 `Material#getKey()`（形如 `minecraft:shield`、`sophisticatedbackpacks:backpack`）；混合服务端上模组物品若无法取到 key，会退回 `Material#name()` 做匹配
 - 通配 `mod:*` 可匹配该命名空间下所有物品
-- 默认配置即「只允许精妙背包 mod 物品进入副手」；如需改为「只禁止精妙背包」，把 `mode` 改为 `BLACKLIST` 即可
+- 默认配置即「只禁止精妙背包 mod 物品进入副手」；如需改为「只允许精妙背包」，把 `mode` 改为 `WHITELIST` 即可
 
 修改后执行 `reload` 或重启服务端生效。
 
@@ -53,7 +53,7 @@ filter:
 mvn clean package
 ```
 
-产物位于 `target/AntiOffhand-1.2.0.jar`。
+产物位于 `target/AntiOffhand-1.2.1.jar`。
 
 ## 槽位说明
 

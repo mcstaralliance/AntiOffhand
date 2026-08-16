@@ -5,10 +5,10 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCreativeEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
-import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
@@ -23,46 +23,52 @@ public final class OffhandListener implements Listener {
     }
 
     /**
-     * 阻止按 F 键切换主副手。
+     * 关闭 GUI 时按 F 切换主副手：拦截的是即将进入副手的物品（当前主手物品）。
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onSwapHands(PlayerSwapHandItemsEvent event) {
-        event.setCancelled(true);
-        notify(event.getPlayer());
+        if (plugin.shouldBlock(event.getMainHandItem())) {
+            event.setCancelled(true);
+            notify(event.getPlayer());
+        }
     }
 
     /**
-     * 阻止一切把物品放入副手槽位的点击操作：
-     * - 直接点击副手槽位（放入、交换、数字键、快捷键等）
-     * - shift 点击盾牌/图腾等会自动装备到副手的物品
+     * 背包内一切点击：判断「即将进入副手的物品」是否被过滤。
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
+        ClickType click = event.getClick();
 
-        // 在背包 GUI 里按 F 键：触发的是 SWAP_OFFHAND 点击类型，
-        // 会把鼠标悬停的槽位与副手槽互换，PlayerSwapHandItemsEvent 不会触发，必须在这里拦。
-        if (event.getClick() == ClickType.SWAP_OFFHAND) {
-            event.setCancelled(true);
-            notify(player);
+        // GUI 内按 F：悬停槽位与副手互换，悬停物品会进入副手
+        if (click == ClickType.SWAP_OFFHAND) {
+            if (plugin.shouldBlock(event.getCurrentItem())) {
+                event.setCancelled(true);
+                notify(player);
+            }
             return;
         }
 
-        // 直接点击玩家背包中的副手槽位（slot 40）
+        // 直接操作副手槽位（slot 40）：判断光标 / 数字键槽位物品是否进入副手
         if (event.getClickedInventory() instanceof PlayerInventory
                 && event.getSlot() == plugin.offhandSlot()) {
-            event.setCancelled(true);
-            notify(player);
+            ItemStack entering = itemEnteringOffhand(event, player);
+            if (plugin.shouldBlock(entering)) {
+                event.setCancelled(true);
+                notify(player);
+            }
             return;
         }
 
-        // shift 点击盾牌：原版行为是直接装备进副手，直接取消
-        if (event.getClick().isShiftClick()
+        // shift 点击盾牌：原版会自动装备进副手
+        if (click.isShiftClick()
                 && event.getClickedInventory() instanceof PlayerInventory) {
             ItemStack item = event.getCurrentItem();
-            if (item != null && item.getType().name().equals("SHIELD")) {
+            if (item != null && item.getType().name().equals("SHIELD")
+                    && plugin.shouldBlock(item)) {
                 event.setCancelled(true);
                 notify(player);
             }
@@ -70,11 +76,12 @@ public final class OffhandListener implements Listener {
     }
 
     /**
-     * 阻止创造模式物品栏中操作副手槽位。
+     * 创造模式物品栏操作副手槽位。
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onCreativeClick(InventoryCreativeEvent event) {
-        if (event.getSlot() == plugin.offhandSlot()) {
+        if (event.getSlot() == plugin.offhandSlot()
+                && plugin.shouldBlock(event.getCursor())) {
             event.setCancelled(true);
             if (event.getWhoClicked() instanceof Player player) {
                 notify(player);
@@ -83,34 +90,52 @@ public final class OffhandListener implements Listener {
     }
 
     /**
-     * 阻止把物品拖拽到副手槽位。
+     * 拖拽物品到副手槽位。
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInventoryDrag(InventoryDragEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
+        int offhand = plugin.offhandSlot();
         for (int raw : event.getRawSlots()) {
             if (event.getView().getInventory(raw) instanceof PlayerInventory
-                    && event.getView().convertSlot(raw) == plugin.offhandSlot()) {
-                event.setCancelled(true);
-                notify(player);
-                return;
+                    && event.getView().convertSlot(raw) == offhand) {
+                ItemStack placed = event.getNewItems().get(raw);
+                if (plugin.shouldBlock(placed)) {
+                    event.setCancelled(true);
+                    notify(player);
+                    return;
+                }
             }
         }
     }
 
     /**
-     * 玩家进入服务器时清掉副手中残留的物品，防止下线时绕过。
+     * 上线时把副手中「被过滤」的残留物品清出并掉落；白名单内的物品（如背包）保留。
      */
     @EventHandler(priority = EventPriority.MONITOR)
     public void onJoin(PlayerJoinEvent event) {
         ItemStack offhand = event.getPlayer().getInventory().getItemInOffHand();
-        if (offhand != null && !offhand.getType().isAir()) {
+        if (offhand != null && !offhand.getType().isAir() && plugin.shouldBlock(offhand)) {
             event.getPlayer().getInventory().setItemInOffHand(null);
             event.getPlayer().getWorld()
                     .dropItemNaturally(event.getPlayer().getLocation(), offhand);
         }
+    }
+
+    /**
+     * 取出本次点击中「会进入副手槽位」的物品。
+     */
+    private ItemStack itemEnteringOffhand(InventoryClickEvent event, Player player) {
+        if (event.getClick() == ClickType.NUMBER_KEY) {
+            int hotbar = event.getHotbarButton();
+            if (hotbar >= 0 && hotbar < 9) {
+                return player.getInventory().getItem(hotbar);
+            }
+            return null;
+        }
+        return event.getCursor();
     }
 
     private void notify(Player player) {

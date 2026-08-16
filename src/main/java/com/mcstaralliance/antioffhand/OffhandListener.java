@@ -23,11 +23,12 @@ public final class OffhandListener implements Listener {
     }
 
     /**
-     * 关闭 GUI 时按 F 切换主副手：拦截的是即将进入副手的物品（当前主手物品）。
+     * 关闭 GUI 时按 F 切换主副手。注意：getOffHandItem() 返回的是「即将进入副手」的物品
+     * （即当前主手物品），getMainHandItem() 反而是原副手物品，别查反了。
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onSwapHands(PlayerSwapHandItemsEvent event) {
-        if (plugin.shouldBlock(event.getMainHandItem())) {
+        if (plugin.shouldBlock(event.getOffHandItem())) {
             event.setCancelled(true);
             notify(event.getPlayer());
         }

@@ -24,18 +24,37 @@ public final class OffhandListener implements Listener {
 
     /**
      * 关闭 GUI 时按 F 切换主副手。
-     * 注意：PlayerSwapHandItemsEvent 的 getMainHandItem()/getOffHandItem() 语义在
-     * Spigot 实现中与 Javadoc 相反，混合服（Arclight/Mohist 等）实现亦不统一。
-     * 事件在交换发生前触发且可取消，因此此刻玩家主手里的物品就是「即将进入副手」
-     * 的物品——直接读背包真实状态判断，不依赖有歧义的 getter。
+     * 正常核心上事件在交换前触发：直接读当前主手物品（即将进副手）判断并取消。
+     * 部分混合核心（Arclight/Mohist 等）在交换完成后才触发此事件、取消时回滚，
+     * 此时事件内判断无意义——因此额外排一个 1 tick 后的一次性复查：若副手里出现
+     * 被过滤物品就挪回主手/背包。只在按 F 时触发，无空转开销。
      */
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onSwapHands(PlayerSwapHandItemsEvent event) {
-        ItemStack enteringOffhand = event.getPlayer().getInventory().getItemInMainHand();
-        if (plugin.shouldBlock(enteringOffhand)) {
+        Player player = event.getPlayer();
+        if (plugin.shouldBlock(player.getInventory().getItemInMainHand())) {
             event.setCancelled(true);
-            notify(event.getPlayer());
+            notify(player);
         }
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()) {
+                return;
+            }
+            ItemStack off = player.getInventory().getItemInOffHand();
+            if (!plugin.shouldBlock(off)) {
+                return;
+            }
+            player.getInventory().setItemInOffHand(null);
+            if (player.getInventory().getItemInMainHand().getType().isAir()) {
+                player.getInventory().setItemInMainHand(off);
+            } else {
+                java.util.Map<Integer, ItemStack> leftover =
+                        player.getInventory().addItem(off);
+                leftover.values().forEach(item ->
+                        player.getWorld().dropItemNaturally(player.getLocation(), item));
+            }
+            notify(player);
+        }, 1L);
     }
 
     /**

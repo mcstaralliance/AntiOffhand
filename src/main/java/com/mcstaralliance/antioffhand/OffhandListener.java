@@ -8,6 +8,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCreativeEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.inventory.ItemStack;
@@ -38,6 +39,14 @@ public final class OffhandListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        // 在背包 GUI 里按 F 键：触发的是 SWAP_OFFHAND 点击类型，
+        // 会把鼠标悬停的槽位与副手槽互换，PlayerSwapHandItemsEvent 不会触发，必须在这里拦。
+        if (event.getClick() == ClickType.SWAP_OFFHAND) {
+            event.setCancelled(true);
+            notify(player);
             return;
         }
 

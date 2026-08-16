@@ -1,15 +1,11 @@
 package com.mcstaralliance.antioffhand;
 
-import net.md_5.bungee.api.ChatColor;
 import org.bukkit.Material;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 public final class AntiOffhand extends JavaPlugin {
 
@@ -19,37 +15,8 @@ public final class AntiOffhand extends JavaPlugin {
     public void onEnable() {
         saveDefaultConfig();
         getServer().getPluginManager().registerEvents(new OffhandListener(this), this);
-        // 兜底：按可配置间隔周期复查副手。部分混合核心的 F 键交换事件触发时机/取消行为
-        // 不可靠，周期性校验保证被过滤物品不会留在副手。默认 5 tick（0.25 秒），开销极低。
-        long interval = Math.max(1L, (long) getConfig().getInt("check-interval-ticks", 5));
-        getServer().getScheduler().runTaskTimer(this, this::enforceOffhandRules, interval, interval);
         getLogger().info("AntiOffhand 已启用。过滤模式：" + filterMode()
-                + "，条目数：" + filterItems().size()
-                + "，副手校验间隔：" + interval + " tick");
-    }
-
-    /**
-     * 复查所有在线玩家的副手：若持有被过滤物品，挪回主手（主手为空）或背包（放不下则掉落）。
-     */
-    private void enforceOffhandRules() {
-        for (Player player : getServer().getOnlinePlayers()) {
-            PlayerInventory inv = player.getInventory();
-            ItemStack off = inv.getItemInOffHand();
-            if (!shouldBlock(off)) {
-                continue;
-            }
-            inv.setItemInOffHand(null);
-            if (inv.getItemInMainHand().getType().isAir()) {
-                inv.setItemInMainHand(off);
-            } else {
-                Map<Integer, ItemStack> leftover = inv.addItem(off);
-                leftover.values().forEach(item ->
-                        player.getWorld().dropItemNaturally(player.getLocation(), item));
-            }
-            if (notifyEnabled()) {
-                player.sendMessage(ChatColor.translateAlternateColorCodes('&', message()));
-            }
-        }
+                + "，条目数：" + filterItems().size());
     }
 
     @Override

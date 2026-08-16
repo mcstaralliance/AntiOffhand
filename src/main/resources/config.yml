@@ -3,6 +3,11 @@ notify-player: true
 # 提示内容（支持 & 颜色代码）
 message: "&c该物品无法放入副手！"
 
+# 副手兜底校验间隔（单位 tick，20 tick = 1 秒）。
+# 某些混合核心（Arclight/Mohist 等）的 F 键交换事件触发时机不可靠，
+# 需要周期性复查副手兜底。默认 5 tick（0.25 秒），开销极低；数值越大开销越小、响应越慢。
+check-interval-ticks: 5
+
 filter:
   # 过滤模式：
   #   WHITELIST - 仅下列物品【允许】放入副手，其余禁止
@@ -14,3 +19,4 @@ filter:
   # 以下默认配置禁止「精妙背包 (Sophisticated Backpacks)」mod 的物品放入副手
   items:
     - "sophisticatedbackpacks:*"
+

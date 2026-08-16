@@ -1,0 +1,6 @@
+name: AntiOffhand
+version: 1.0.0
+main: com.mcstaralliance.antioffhand.AntiOffhand
+api-version: '1.21'
+author: MCStarAlliance
+description: Disables placing items into the off-hand and swapping hands.
